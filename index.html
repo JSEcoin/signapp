@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>JSE Sign App</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
+  <script src="crypto.js"></script>
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.css" rel="stylesheet">
+  
+  <style>
+    html,body {
+      width: 100%;
+      margin: 0;
+      font-family: 'Raleway', sans-serif;
+      font-size: 18px;
+      color: #223;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0px auto;
+      text-align: center;
+    }
+    .header {
+      margin-top: 5px;
+    }
+    .logo {
+      font-size: 36px;
+      font-weight: bold;
+      color: #223;
+    }
+    .logo-icon {
+      background: #223;
+      color: #FFF;
+      border-radius: 50px;
+      padding: 4px;
+    }
+    .menu {
+      text-align: left;
+    }
+    .menu-item {
+      background: #223;
+      color: #FFF;
+      border-radius: 5px;
+      padding: 10px 50px;
+      margin: 10px auto;
+      max-width: 180px;
+      cursor: pointer;
+    }
+    .menu-item i {
+      margin-right: 20px;
+    }
+    .btn {
+      border: none;
+      background: #223;
+      color: #FFF;
+      border-radius: 5px;
+      padding: 10px 50px;
+      cursor: pointer;
+    }
+    .content {
+      font-size: 15px;
+    }
+    .user-message {
+      margin: 40px 0px;
+      font-size: 13px;
+      color: #D00;
+    }
+    .text-input {
+      border: 1px solid #CCC;
+      border-radius: 5px;
+      padding: 5px;
+      margin: 5px 0px;
+    }
+    #new-user {
+      display: none;
+    }
+    #new-contract {
+      display: none;
+    }
+    #view-contract {
+      display: none;
+    }
+    .contract-buttons {
+      margin-top: 10px;
+    }
+    .contract-buttons .btn {
+      margin-top: 5px;
+    }
+    .contract-field {
+      margin: 10px 0px;
+    }
+    .contract-field div {
+      color: #D00;
+    }
+    #contract-hash, #contract-blockchain-hash {
+      font-size: 9px;
+    }
+    #document {
+      margin: 10px auto;
+    }
+    #notification {
+      position: fixed;
+      bottom: 10px;
+      width: 100%;
+      background: #DDF;
+      text-align: center;
+      font-size: 13px;
+      padding: 10px;
+      display:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo"><i class="fa fa-check logo-icon" aria-hidden="true"></i> JSE Sign App</div>
+    </div>
+    <div class="menu">
+      <div class="menu-item" onclick="newUser();"><i class="fa fa-user" aria-hidden="true"></i> New User</div>
+      <div class="menu-item" onclick="newContract();"><i class="fa fa-file-text" aria-hidden="true"></i> New Contract</div>
+      <div class="menu-item" onclick="viewContract();"><i class="fa fa-eye" aria-hidden="true"></i> View Contract</div>
+    </div>
+    <div id="content">
+      <div id="new-user" class="main-section">
+        <h2>New User</h2>
+        <div class="user-form">
+          Enter Your Email:<br>
+          <input type="text" id="email" class="text-input" /><br>
+          <button class="btn" onclick="getKeys()"><i class="fa fa-key" aria-hidden="true"></i> Get Keys</button>
+        </div>
+        <div class="user-message">A private key will be sent to your email address</div>
+        <div class="user-keys">
+          Enter Your Private Key:<br>
+          <input type="text" id="private-key" class="text-input" /><br>
+          <button class="btn" onclick="saveKey()"><i class="fa fa-floppy-o" aria-hidden="true"></i> Save To Browser</button>
+        </div>
+      </div>
+      <div id="new-contract" class="main-section">
+        <h2>New Contract</h2>
+        <div class="contract-form">
+          Upload Document:<br>
+          <input type="file" id="document" class="file-input" /><br>
+          <button class="btn" onclick="upload()"><i class="fa fa-cloud-upload" aria-hidden="true"></i> Upload</button>
+        </div>
+      </div>
+      <div id="view-contract" class="main-section">
+        <h2>View Contract</h2>
+        <div id="contract-form"></div>
+        <div id="contract-display"></div>
+      </div>
+    </div>
+    <div id="notification"></div>
+  </div>
+  <script>
+    const server = 'http://localhost:300';
+
+    let notificationTimer;
+    const notify = (msg) => {
+      document.getElementById('notification').innerHTML = `<i class="fa fa-bell-o" aria-hidden="true"></i> ${msg}`;
+      document.getElementById('notification').style.display = 'block';
+      notificationTimer = setTimeout(() => { document.getElementById('notification').style.display = 'none'; }, 5000);
+    };
+
+    const newUser = () => {
+      document.querySelectorAll('.main-section').forEach((section) => { section.style.display = 'none'; });
+      document.getElementById('new-user').style.display = 'block';
+    };
+
+    const newContract = () => {
+      document.querySelectorAll('.main-section').forEach((section) => { section.style.display = 'none'; });
+      document.getElementById('new-contract').style.display = 'block';
+    };
+
+    const viewContract = (hash=false) => {
+      document.querySelectorAll('.main-section').forEach((section) => { section.style.display = 'none'; });
+      document.getElementById('view-contract').style.display = 'block';
+      if (hash) {
+        displayContract(hash);
+      } else {
+        document.getElementById('contract-form').innerHTML = `Enter Contract Reference:<br>
+          <input type="text" id="contract-ref" class="text-input" /><br>
+          <button class="btn" onclick="findContract();"><i class="fa fa-search" aria-hidden="true"></i> Find Contract</button>`;
+      }
+    };
+
+    const findContract = () => {
+      const ref = document.getElementById('contract-ref').value;
+      viewContract(ref);
+    };
+
+    const getKeys = () => {
+      const email = document.getElementById('email').value.toLowerCase();
+      localStorage.setItem('email',email);
+      fetch(`${server}/newuser/`, {
+        method: 'post',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).then(async (res) => {
+        const response = await res.json();
+        notify('Please check your email for a private key');
+        localStorage.setItem('pubKey',response.pubKey);
+      });
+    };
+
+    const saveKey = () => {
+      const privKey = document.getElementById('private-key').value;
+      localStorage.setItem('privKey',privKey); // could do with being encrypted first using a password i.e. metamask
+      notify('Your private key has been stored in the browsers local storage');
+    };
+
+    const upload = () => {
+      const file = document.getElementById('document').files[0];
+      sha256File(file,(hash) => {
+        const filename = file.name;
+        const email = localStorage.getItem('email');
+        if (!email) {
+          notify('Setup a user first');
+          newUser();
+          return false;
+        }
+        fetch(`${server}/newcontract/`, {
+          method: 'post',
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename,hash,email }),
+        }).then(async (res) => {
+          const response = await res.json();
+          notify(`Contract setup ref. ${response.hash}`);
+          viewContract(response.hash);
+        });
+      });
+    };
+
+    const sha256File = (file,callback) => {
+      const reader = new FileReader();
+      reader.onload = function(e2) {
+        let sha256 = CryptoJS.algo.SHA256.create();
+        sha256.update(CryptoJS.enc.Latin1.parse(e2.target.result));
+        const hash = sha256.finalize().toString();
+        callback(hash);
+      }
+      reader.readAsBinaryString(file);
+    };
+
+    const displayContract = (ref) => {
+      fetch(`${server}/getcontract/`, {
+        method: 'post',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref }),
+      }).then(async (res) => {
+        const contract = await res.json();
+        const signatories = [];
+        contract.signatures.forEach((sig) => {
+          signatories.push(`<div class="contract-signed">${sig.email}</div>`);
+        });
+        if (signatories.length === 0) signatories.push(`<div class="contract-signed">No Signatures Yet</div>`);
+        const uploadedDate = new Date(contract.uploadedTS).toLocaleString();
+        let blockHashHTML = `<div class="contract-buttons">
+            <button class="btn" onclick="signDoc('${contract.hash}')"><i class="fa fa-check-square-o" aria-hidden="true"></i> Sign Document</button><br>
+            <button class="btn" onclick="finaliseDoc('${contract.hash}')"><i class="fa fa-cube" aria-hidden="true"></i> Finalise Document</button>
+          </div>`;
+        if (contract.blockHash) {
+          const finalisedDate = new Date(contract.finalisedTS).toLocaleString();
+          blockHashHTML = `<div class="contract-field">Blockchain Reference/Hash:
+            <div id="contract-blockchain-hash">${contract.blockHash}</div>
+          </div>
+          <div class="contract-field">Finalised Date:
+            <div id="contract-finalised">${finalisedDate}</div>            
+          </div>`;
+        }
+        const contractHTML = `<div class="contract-field">Document:
+            <div id="contract-filename">${contract.filename}</div>            
+          </div>
+          <div class="contract-field">Reference/Hash:
+            <div id="contract-hash">${contract.hash}</div>            
+          </div>
+          <div class="contract-field">Upload Date:
+            <div id="contract-uploaded">${uploadedDate}</div>            
+          </div>
+          <div class="contract-field">Signed By:
+            ${signatories.join('')}
+          </div>
+          ${blockHashHTML}`;
+        document.getElementById('contract-display').innerHTML = contractHTML;
+
+      });
+    }
+
+    const signDoc = (ref) => {
+      const privKey = localStorage.getItem('privKey');
+      const email = localStorage.getItem('email');
+      if (!privKey) return false;
+      signHash(ref,privKey,(signature) => {
+        fetch(`${server}/signcontract/`, {
+          method: 'post',
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ref,email,signature }),
+        }).then(async (res) => {
+          const contract = await res.json();
+          notify('Contract Signed');
+          viewContract(ref);
+        });
+      });
+    }
+
+    const finaliseDoc = (ref) => {
+      fetch(`${server}/finalisecontract/`, {
+        method: 'post',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref }),
+      }).then(async (res) => {
+        const contract = await res.json();
+        notify('Contract Uploaded To JSE Blockchain');
+        viewContract(ref);
+      });
+    };
+
+  </script>
+</body>
+</html>
